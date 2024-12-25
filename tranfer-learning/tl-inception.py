@@ -176,7 +176,7 @@ class ThermalImageClassifier:
 if __name__ == "__main__":
     # Initialize paths
     base_dir = Path("/content/drive/MyDrive/Thermal Imaging Project/Greyscale Images/Dataset")
-    model_path = base_dir / "Transfer Learning Model Using InceptionV3.keras"
+    model_path = base_dir / "InceptionV3.keras"
     
     # Create classifier instance
     classifier = ThermalImageClassifier(

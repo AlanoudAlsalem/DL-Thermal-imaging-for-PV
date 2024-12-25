@@ -255,7 +255,7 @@ class ThermalImageClassifierResNet:
 if __name__ == "__main__":
     # Initialize paths
     base_dir = Path("/content/drive/MyDrive/Thermal Imaging Project/Greyscale Images/Dataset")
-    model_path = base_dir / "Transfer Learning Model Using ResNet50.keras"
+    model_path = base_dir / "ResNet50.keras"
     
     # Create classifier instance
     classifier = ThermalImageClassifierResNet(

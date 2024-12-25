@@ -176,7 +176,7 @@ class ThermalImageClassifierMobileNet:
 if __name__ == "__main__":
     # Initialize paths
     base_dir = Path("/content/drive/MyDrive/Thermal Imaging Project/Greyscale Images/Dataset")
-    model_path = base_dir / "Transfer Learning Model Using MobileNetV2.keras"
+    model_path = base_dir / "MobileNetV2.keras"
     
     # Create classifier instance
     classifier = ThermalImageClassifierMobileNet(
