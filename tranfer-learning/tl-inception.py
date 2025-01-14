@@ -49,45 +49,46 @@ class ThermalImageClassifier:
         
         return ds.cache().prefetch(buffer_size=tf.data.AUTOTUNE)
 
+    def _create_augmentation_model(self, input_layer):
+    """Create data augmentation pipeline with sequential layers."""
+        augmentation = tf.keras.Sequential([
+            tf.keras.layers.Resizing(self.height, self.width),
+            tf.keras.layers.RandomFlip("horizontal"),
+            tf.keras.layers.RandomRotation(0.1),
+            tf.keras.layers.RandomZoom(0.1),
+            tf.keras.layers.RandomBrightness(factor=(-0.2, 0.2)),
+            tf.keras.layers.RandomContrast(factor=(0.8, 1.2)),
+            tf.keras.layers.Lambda(tf.keras.applications.inception_v3.preprocess_input)
+            ])
+    
+        return tf.keras.models.Model(inputs=input_layer, outputs=augmentation(input_layer))
+
+# Usage in the build_model method:
     def build_model(self):
-        """Build model with improved architecture."""
+    """Build and compile the model architecture."""
         input_layer = tf.keras.layers.Input(shape=(self.height, self.width, 3))
         augmentation = self._create_augmentation_model(input_layer)
-        
-        # Load pre-trained InceptionV3
+    
+    # Load pre-trained InceptionV3
         pretrained = tf.keras.applications.InceptionV3(
             include_top=False,
             weights='imagenet',
             input_shape=(self.height, self.width, 3)
-        )
+            )
         pretrained.trainable = False
-        
-        # Improved model architecture
+    
+    # Build final model with improved architecture
         x = augmentation.output
         x = pretrained(x)
         x = tf.keras.layers.GlobalAveragePooling2D()(x)
-        x = tf.keras.layers.Dropout(0.5)(x)  # Added dropout
-        x = tf.keras.layers.Dense(512, activation='relu')(x)  # Added intermediate layer
-        x = tf.keras.layers.BatchNormalization()(x)  # Added batch normalization
-        x = tf.keras.layers.Dropout(0.3)(x)  # Added dropout
+        x = tf.keras.layers.Dropout(0.5)(x)
+        x = tf.keras.layers.Dense(512, activation='relu')(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.Dropout(0.3)(x)
         output = tf.keras.layers.Dense(self.num_classes, activation='softmax')(x)
-        
+    
         self.model = tf.keras.models.Model(inputs=augmentation.input, outputs=output)
         self._compile_model()
-
-    def _create_augmentation_model(self, input_layer):
-        """Improved data augmentation pipeline."""
-        x = tf.keras.layers.Resizing(self.height, self.width)(input_layer)
-        x = tf.keras.layers.RandomBrightness((-0.2, 0.2))(x)  # Reduced range
-        x = tf.keras.layers.RandomContrast(0.2)(x)  # Reduced contrast
-        x = tf.keras.layers.RandomFlip(mode='horizontal')(x)
-        x = tf.keras.layers.RandomRotation(0.1)(x)  # Added rotation
-        x = tf.keras.layers.RandomZoom(0.1)(x)  # Added zoom
-        x = tf.keras.layers.Lambda(
-            tf.keras.applications.inception_v3.preprocess_input
-        )(x)
-        
-        return tf.keras.models.Model(inputs=input_layer, outputs=x)
 
     def _compile_model(self, learning_rate: float = 1e-3):
         """Compile model with proper metrics."""
