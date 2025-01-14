@@ -136,24 +136,28 @@ class ThermalImageClassifierMobileNet:
             
         self._compile_model(learning_rate=1e-5)  # Lower learning rate for fine-tuning
         
-    def evaluate(self, dataset='test'):
-        """Evaluate the model with proper metrics."""
-        eval_ds = {
-            'train': self.train_ds,
-            'val': self.val_ds,
-            'test': self.test_ds
-        }.get(dataset)
-        
-        return self.model.evaluate(eval_ds)
+    def save_model(self, path: str):
+        """Save the trained model."""
+        self.model.save(path)
+
+    @classmethod
+    def load_model(cls, path: str):
+        """Load a saved model."""
+        return tf.keras.models.load_model(
+            path,
+            custom_objects={
+                'preprocess_input': tf.keras.applications.efficientnet_v2.preprocess_input
+            }
+        )
 
     def plot_training_history(self):
         """Plot training history."""
         if self.history is None:
             print("No training history available. Train the model first.")
             return
-            
+
         plt.figure(figsize=(12, 4))
-        
+
         plt.subplot(1, 2, 1)
         plt.plot(self.history.history['loss'], label='Training Loss')
         plt.plot(self.history.history['val_loss'], label='Validation Loss')
@@ -161,7 +165,7 @@ class ThermalImageClassifierMobileNet:
         plt.xlabel('Epoch')
         plt.ylabel('Loss')
         plt.legend()
-        
+
         plt.subplot(1, 2, 2)
         plt.plot(self.history.history['accuracy'], label='Training Accuracy')
         plt.plot(self.history.history['val_accuracy'], label='Validation Accuracy')
@@ -169,6 +173,34 @@ class ThermalImageClassifierMobileNet:
         plt.xlabel('Epoch')
         plt.ylabel('Accuracy')
         plt.legend()
-        
+
         plt.tight_layout()
         plt.show()
+
+# Usage example:
+if __name__ == "__main__":
+    # Initialize paths
+    base_dir = Path("../Dataset-20241124T163610Z-001/Dataset")
+    model_path = base_dir / "Mobile.keras"
+
+    # Create classifier instance
+    classifier = ThermalImageClassifierMobileNet(
+        train_dir=str(base_dir / "train"),
+        val_dir=str(base_dir / "val"),
+        test_dir=str(base_dir / "test")
+    )
+
+    # Train model
+    classifier.build_model()
+    classifier.train(epochs=40, model_path=str(model_path))
+
+    # Plot training progress
+    classifier.plot_training_history()
+
+    # Fine-tune model
+    classifier.fine_tune(start_layer=402)
+    classifier.train(epochs=40, model_path=str(model_path))
+
+    # Evaluate and save
+    classifier.evaluate('val')
+    classifier.save_model(str(model_path))
