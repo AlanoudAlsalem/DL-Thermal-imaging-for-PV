@@ -6,8 +6,8 @@ from pathlib import Path
 class ThermalImageClassifierResNet:
     def __init__(self, train_dir: str, val_dir: str, test_dir: str, num_classes: int = 12):
         self.num_classes = num_classes
-        # Increased size for ResNet50
-        self.height = 224  # Changed to standard ResNet input size
+        # Standard ResNet input size
+        self.height = 224
         self.width = int(self.height * (320/240))
         self.image_size = (self.height, self.width)
         
@@ -23,6 +23,7 @@ class ThermalImageClassifierResNet:
         self.class_weights = None
 
     def _setup_gpu(self):
+        """Configure GPU if available."""
         if not tf.config.list_physical_devices('GPU'):
             print("No GPU detected. Training will proceed on CPU.")
         else:
@@ -30,10 +31,11 @@ class ThermalImageClassifierResNet:
 
     @tf.autograph.experimental.do_not_convert
     def _grey_to_rgb(self, image):
+        """Convert grayscale images to RGB if necessary."""
         return tf.image.grayscale_to_rgb(image) if image.shape[-1] == 1 else image
 
     def _prepare_dataset(self, directory: str, batch_size: int = 16):
-        """Prepare dataset with proper normalization."""
+        """Prepare dataset with proper normalization and augmentation."""
         ds = tf.keras.utils.image_dataset_from_directory(
             directory,
             image_size=self.image_size,
@@ -69,44 +71,51 @@ class ThermalImageClassifierResNet:
         return self.class_weights
 
     def build_model(self):
-        """Build model with improved architecture."""
+        """Build and compile the model architecture."""
+        # Create input layer
         input_layer = tf.keras.layers.Input(shape=(self.height, self.width, 3))
-        augmentation = self._create_augmentation_model(input_layer)
+        
+        # Create augmentation model
+        augmentation_model = self._create_augmentation_model(input_layer)
         
         # Load pre-trained ResNet50
-        pretrained = tf.keras.applications.ResNet50(
+        base_model = tf.keras.applications.ResNet50(
             include_top=False,
             weights='imagenet',
-            input_shape=(self.height, self.width, 3)
+            input_tensor=augmentation_model.output,
+            pooling='avg'
         )
-        pretrained.trainable = False
         
-        # Improved architecture
-        x = augmentation.output
-        x = pretrained(x)
-        x = tf.keras.layers.GlobalAveragePooling2D()(x)
-        x = tf.keras.layers.Dropout(0.5)(x)
+        # Freeze the base model layers
+        base_model.trainable = False
+        
+        # Add classification head
+        x = base_model.output
         x = tf.keras.layers.Dense(512, activation='relu')(x)
-        x = tf.keras.layers.BatchNormalization()(x)
-        x = tf.keras.layers.Dropout(0.3)(x)
-        output = tf.keras.layers.Dense(self.num_classes, activation='softmax')(x)
+        x = tf.keras.layers.Dropout(0.5)(x)
+        outputs = tf.keras.layers.Dense(self.num_classes, activation='softmax')(x)
         
-        self.model = tf.keras.models.Model(inputs=augmentation.input, outputs=output)
+        # Create the full model
+        self.model = tf.keras.Model(inputs=input_layer, outputs=outputs)
+        
+        # Compile the model
         self._compile_model()
+        
+        return self.model
 
     def _create_augmentation_model(self, input_layer):
-        """Improved data augmentation pipeline."""
-        x = tf.keras.layers.Resizing(self.height, self.width)(input_layer)
-        x = tf.keras.layers.RandomBrightness((-0.2, 0.2))(x)
-        x = tf.keras.layers.RandomContrast(0.2)(x)
-        x = tf.keras.layers.RandomFlip(mode='horizontal')(x)
-        x = tf.keras.layers.RandomRotation(0.1)(x)
-        x = tf.keras.layers.RandomZoom(0.1)(x)
-        x = tf.keras.layers.Lambda(
-            tf.keras.applications.resnet.preprocess_input
-        )(x)
+        """Create data augmentation pipeline."""
+        augmentation = tf.keras.Sequential([
+            tf.keras.layers.Resizing(self.height, self.width),
+            tf.keras.layers.RandomFlip("horizontal"),
+            tf.keras.layers.RandomRotation(0.1),
+            tf.keras.layers.RandomZoom(0.1),
+            tf.keras.layers.RandomBrightness(factor=(-0.2, 0.2)),
+            tf.keras.layers.RandomContrast(factor=(0.8, 1.2)),
+            tf.keras.layers.Lambda(tf.keras.applications.resnet50.preprocess_input)
+        ])
         
-        return tf.keras.models.Model(inputs=input_layer, outputs=x)
+        return tf.keras.models.Model(inputs=input_layer, outputs=augmentation(input_layer))
 
     def _f1_score(self, y_true, y_pred):
         """Calculate F1 score metric."""
@@ -121,7 +130,7 @@ class ThermalImageClassifierResNet:
         return f1
 
     def _compile_model(self, learning_rate: float = 1e-3):
-        """Compile model with improved metrics."""
+        """Compile model with metrics."""
         self.model.compile(
             optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
             loss=tf.keras.losses.CategoricalCrossentropy(),
@@ -133,7 +142,7 @@ class ThermalImageClassifierResNet:
         )
 
     def train(self, epochs: int = 40, model_path: str = "thermal_model_resnet.keras"):
-        """Train with improved callbacks."""
+        """Train the model with callbacks."""
         if self.class_weights is None:
             self.calculate_class_weights()
             
@@ -166,28 +175,32 @@ class ThermalImageClassifierResNet:
         )
 
     def fine_tune(self, num_layers: int = 30):
-        """Improved fine-tuning strategy."""
-        # Unfreeze the last num_layers layers
+        """Fine-tune the model."""
+        # Unfreeze the specified number of layers
         for layer in self.model.layers[2].layers[-num_layers:]:
             if not isinstance(layer, tf.keras.layers.BatchNormalization):
                 layer.trainable = True
             
+        # Recompile with lower learning rate
         self._compile_model(learning_rate=1e-5)
 
     def evaluate(self, dataset='test'):
-        """Evaluate model with all metrics."""
+        """Evaluate model performance."""
         eval_ds = {
             'train': self.train_ds,
             'val': self.val_ds,
             'test': self.test_ds
         }.get(dataset)
         
+        if eval_ds is None:
+            raise ValueError("Dataset must be one of: 'train', 'val', 'test'")
+        
         results = self.model.evaluate(eval_ds)
         metrics = {name: value for name, value in zip(self.model.metrics_names, results)}
         return metrics
 
     def plot_training_history(self):
-        """Plot comprehensive training history."""
+        """Plot training metrics history."""
         if self.history is None:
             print("No training history available. Train the model first.")
             return
@@ -206,3 +219,39 @@ class ThermalImageClassifierResNet:
         
         plt.tight_layout()
         plt.show()
+
+    def save_model(self, model_path: str):
+        """Save the trained model."""
+        if self.model is None:
+            raise ValueError("No model to save. Build and train the model first.")
+        self.model.save(model_path)
+        print(f"Model saved to {model_path}")
+
+# Usage example
+if __name__ == "__main__":
+    # Initialize paths
+    base_dir = Path("Dataset/")
+    model_path = base_dir / "thermal_model_resnet.keras"
+
+    # Create classifier instance
+    classifier = ThermalImageClassifierResNet(
+        train_dir=str(base_dir / "train"),
+        val_dir=str(base_dir / "val"),
+        test_dir=str(base_dir / "test")
+    )
+
+    # Build and train model
+    classifier.build_model()
+    classifier.train(epochs=40, model_path=str(model_path))
+
+    # Plot training progress
+    classifier.plot_training_history()
+
+    # Optional: Fine-tune and continue training
+    classifier.fine_tune(num_layers=30)
+    classifier.train(epochs=20, model_path=str(model_path))
+
+    # Evaluate and save
+    metrics = classifier.evaluate('test')
+    print("Test metrics:", metrics)
+    classifier.save_model(str(model_path))
