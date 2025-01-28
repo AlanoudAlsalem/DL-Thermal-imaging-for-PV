@@ -50,7 +50,7 @@ class ThermalImageClassifier:
         return ds.cache().prefetch(buffer_size=tf.data.AUTOTUNE)
 
     def _create_augmentation_model(self, input_layer):
-    """Create data augmentation pipeline with sequential layers."""
+        """Create data augmentation pipeline with sequential layers."""
         augmentation = tf.keras.Sequential([
             tf.keras.layers.Resizing(self.height, self.width),
             tf.keras.layers.RandomFlip("horizontal"),
@@ -63,9 +63,9 @@ class ThermalImageClassifier:
     
         return tf.keras.models.Model(inputs=input_layer, outputs=augmentation(input_layer))
 
-# Usage in the build_model method:
+    # Usage in the build_model method:
     def build_model(self):
-    """Build and compile the model architecture."""
+        """Build and compile the model architecture."""
         input_layer = tf.keras.layers.Input(shape=(self.height, self.width, 3))
         augmentation = self._create_augmentation_model(input_layer)
     
@@ -170,8 +170,8 @@ class ThermalImageClassifier:
 # Usage example:
 if __name__ == "__main__":
     # Initialize paths
-    base_dir = Path("/content/drive/MyDrive/Thermal Imaging Project/Greyscale Images/Dataset")
-    model_path = base_dir / "InceptionV3.keras"
+    base_dir = Path("Dataset/")
+    model_path = base_dir / "InceptionV3.h5"
 
     # Create classifier instance
     classifier = ThermalImageClassifier(
@@ -190,4 +190,4 @@ if __name__ == "__main__":
 
     # Evaluate and save
     classifier.evaluate()
-    classifier.save_model(str(model_path))
+    classifier.save_model(str(model_path))  

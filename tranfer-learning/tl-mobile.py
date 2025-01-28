@@ -139,7 +139,7 @@ class ThermalImageClassifierMobileNet:
             
         # Find the MobileNetV2 base model
         for layer in self.model.layers:
-            if isinstance(layer, tf.keras.applications.MobileNetV2):
+            if isinstance(layer, type(tf.keras.applications.MobileNetV2())):
                 base_model = layer
                 break
         else:
@@ -217,8 +217,8 @@ class ThermalImageClassifierMobileNet:
 # Usage example:
 if __name__ == "__main__":
     # Initialize paths
-    base_dir = Path("../Dataset-20241124T163610Z-001/Dataset")
-    model_path = base_dir / "Mobile.keras"
+    base_dir = Path("Dataset/")
+    model_path = base_dir / "Mobile.h5"
 
     # Create classifier instance
     classifier = ThermalImageClassifierMobileNet(
