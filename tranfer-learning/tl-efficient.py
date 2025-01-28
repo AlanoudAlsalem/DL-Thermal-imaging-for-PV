@@ -199,7 +199,7 @@ class ThermalImageClassifierEfficientNet:
 # Usage example:
 if __name__ == "__main__":
     # Initialize paths
-    base_dir = Path("../Dataset-20241124T163610Z-001/Dataset")
+    base_dir = Path("Dataset/")
     model_path = base_dir / "EfficientNetV2B3.keras"
 
     # Create classifier instance
