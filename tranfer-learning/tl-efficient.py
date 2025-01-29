@@ -134,7 +134,7 @@ class ThermalImageClassifierEfficientNet:
 
     def fine_tune(self, start_layer: int = -50):  # Changed to use negative indexing
         """Fine-tune the last layers of the model."""
-        for layer in self.model.layers[2].layers[start_layer:]:
+        for layer in self.model.layers[start_layer:]:
             layer.trainable = True
 
         self._compile_model(learning_rate=1e-5)  # Even lower learning rate for fine-tuning
@@ -211,7 +211,7 @@ if __name__ == "__main__":
 
     # Train model
     classifier.build_model()
-    classifier.train(epochs=40, model_path=str(model_path))
+    classifier.train(epochs=1, model_path=str(model_path))
 
     # Plot training progress
     classifier.plot_training_history()
