@@ -71,8 +71,37 @@ class ThermalImageClassifierResNet:
     # Usage in the build_model method:
     def build_model(self):
         """Build and compile the model architecture."""
+        # Create input layer
         input_layer = tf.keras.layers.Input(shape=(self.height, self.width, 3))
-        augmentation = self._create_augmentation_model(input_layer)
+        
+        # Create augmentation model
+        augmentation_model = self._create_augmentation_model(input_layer)
+        
+        # Load pre-trained ResNet50
+        base_model = tf.keras.applications.ResNet50(
+            include_top=False,
+            weights='imagenet',
+            input_tensor=augmentation_model.output,
+            pooling='avg'
+        )
+        
+        # Freeze the base model layers
+        base_model.trainable = False
+        
+        # Add classification head
+        x = base_model.output
+        x = tf.keras.layers.Dense(512, activation='relu')(x)
+        x = tf.keras.layers.Dropout(0.5)(x)
+        outputs = tf.keras.layers.Dense(self.num_classes, activation='softmax')(x)
+        
+        # Create the full model
+        self.model = tf.keras.Model(inputs=input_layer, outputs=outputs)
+        
+        # Compile the model
+        self._compile_model()
+        
+        return self.model
+
 
     def _create_augmentation_model(self, input_layer):
         """Create data augmentation pipeline with sequential layers."""
